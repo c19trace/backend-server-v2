@@ -26,8 +26,6 @@ def add_token(gNum, random_ids):
     time = datetime.now().strftime("%Y-%m-%d") 
     status = 0
     # Check how random_ids is saved...
-    print(gNum)
-    print(random_ids)
     data = (gNum, random_ids, time, status)
     sql = "insert into randomids (gNum, randomid, date, status) values (?, ?, ?, ?);"
 
@@ -101,7 +99,6 @@ def submit_list():
 
 #===============
 
-# Decryption... unused
 def decryptMsg(secret_key, encrypted):
     secret_key = b64decode(secret_key)
     encrypted = encrypted.split(':')
@@ -111,6 +108,7 @@ def decryptMsg(secret_key, encrypted):
     decrypted = box.decrypt(encrypted, nonce).decode('utf-8')
 
     print("Decrypted token: ", decrypted)
+    return decrypted
 
 
 '''Submits a token to the database.
@@ -119,14 +117,16 @@ def decryptMsg(secret_key, encrypted):
 def test():
     if request.method == 'POST':
         msg = request.json
-        token = str(msg['token'])
-        id = str(msg['id'])
+        token = str(msg['msg'])
         print("Request received:", id, token)
 
+        # decypt
+        secret_key = "5MsHBAGgmulDbS2AsX9bNY9fd5SVKd3IG5SXc9JTVic="
+        decrypted = decryptMsg(secret_key, token).split(':')
+        
+        # Add to db
         with sqlite3.connect(DATABASE) as con:
-            add_token(id, token)
-
-        #decryptMsg(secret_key, msg)
+            add_token(decrypted[0], decrypted[1])
 
     return "ok"
 
