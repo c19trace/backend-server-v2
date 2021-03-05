@@ -10,8 +10,10 @@ from nacl.public import PrivateKey
 
 API_KEY = "test123" 
 DATABASE = 'exposed_random_ids.db'
-CREATE_QUERY = """create table if not exists randomids (id integer primary key autoincrement,
-                randomid varchar(32) not null unique, date date, status integer);
+CREATE_QUERY = """create table if not exists
+                randomids (id integer primary key autoincrement,
+                gNum varchar(32) not null, randomid varchar(32) not null unique,
+                date date, status integer);
                 """
 
 
@@ -20,12 +22,14 @@ CORS(app)
 
 '''Adds to the database.
 '''
-def add_random_ids(random_ids):
+def add_token(gNum, random_ids):
     time = datetime.now().strftime("%Y-%m-%d") 
     status = 0
     # Check how random_ids is saved...
-    data = (random_ids[0][0], time, status)
-    sql = "insert into randomids (randomid, date, status) values (?, ?, ?);"
+    print(gNum)
+    print(random_ids)
+    data = (gNum, random_ids, time, status)
+    sql = "insert into randomids (gNum, randomid, date, status) values (?, ?, ?, ?);"
 
     with sqlite3.connect(DATABASE) as con:
         try:
@@ -90,7 +94,7 @@ def submit_list():
     random_ids = [(i, ) for i in random_ids]
 
     with sqlite3.connect(DATABASE) as con:
-        add_random_ids(random_ids)
+        add_token(random_ids)
 
     return "ok"
 
@@ -115,18 +119,16 @@ def decryptMsg(secret_key, encrypted):
 def test():
     if request.method == 'POST':
         msg = request.json
-        token = msg['token']
-        print("Request received, ", token)
-
-        random_ids = token.split(",")
-        random_ids = [(i, ) for i in random_ids]
+        token = str(msg['token'])
+        id = str(msg['id'])
+        print("Request received:", id, token)
 
         with sqlite3.connect(DATABASE) as con:
-            add_random_ids(random_ids)
+            add_token(id, token)
 
         #decryptMsg(secret_key, msg)
 
     return "ok"
 
 if __name__ == '__main__':
-    app.run() 
+    app.run(host='0.0.0.0')
