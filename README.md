@@ -11,8 +11,6 @@ First activate the pip package manager by running the activate script, `source v
 Afterwards, run the following script `/start_server.sh`
 
 ## Api calls
-### GET: /get-exposure-list
-Returns a list of all random id's that may have been exposed to covid-19.
 
 ### POST: /update-status
 Updates the status of a token.
