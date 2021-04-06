@@ -8,7 +8,7 @@ Run the following script `./start_server.sh`
 
 ### Starting the server on bash
 First activate the pip package manager by running the activate script, `source venv/bin/activate`
-Afterwards, run the following script `/start_server.sh`
+Afterwards, run the following script `./start_server.sh`
 
 ## Api calls
 
