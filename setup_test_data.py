@@ -1,27 +1,18 @@
-
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
-
 from datetime import datetime
 import sqlite3
 
 API_KEY = "test123" 
-DATABASE = 'exposed_random_ids.db'
+DATABASE = 'exposure.db'
 CREATE_QUERY = """create table if not exists
-                randomids (id integer primary key autoincrement,
-                gNum varchar(32) not null, randomid varchar(32) not null unique,
+                exposureTokens (id integer primary key autoincrement,
+                gNum varchar(32) not null, token varchar(32) not null unique,
                 date date, status integer);
                 """
-
-
-app = Flask(__name__)
-CORS(app)
-
 
 def add_token(gNum, random_ids, date, status):
     # Check how random_ids is saved...
     data = (gNum, random_ids, date, status)
-    sql = "insert into randomids (gNum, randomid, date, status) values (?, ?, ?, ?);"
+    sql = "insert into exposureTokens (gNum, token , date, status) values (?, ?, ?, ?);"
 
     with sqlite3.connect(DATABASE) as con:
         try:
