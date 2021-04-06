@@ -1,14 +1,14 @@
 # exposure-notification-server
 
 ## Test data is created from the following script
-Run the following script, `./test_data.sh`
+Run the following script `./test_data.sh`
 
 ## Starting the server on Windows
-Run the following script, `./start_server.sh`
+Run the following script `./start_server.sh`
 
 ### Starting the server on bash
 First activate the pip package manager by running the activate script, `source venv/bin/activate`
-Afterwards, run the following script, `/start_server.sh`
+Afterwards, run the following script `/start_server.sh`
 
 ## Api calls
 ### GET: /get-exposure-list
