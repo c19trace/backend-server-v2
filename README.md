@@ -1,18 +1,18 @@
 # exposure-notification-server
 
 ## Test data is created from the following script
-Run the following script, `./test_data.sh`
+Run the following script `./test_data.sh`
 
-## Starting the server on Windows
-Run the following script, `./start_server.sh`
+## Starting the server 
 
-### Starting the server on bash
+### On Windows
+Run the following script `./start_server.sh`
+
+### On bash
 First activate the pip package manager by running the activate script, `source venv/bin/activate`
-Afterwards, run the following script, `/start_server.sh`
+Afterwards, run the following script `./start_server.sh`
 
-## Api calls
-### GET: /get-exposure-list
-Returns a list of all random id's that may have been exposed to covid-19.
+## API calls
 
 ### POST: /update-status
 Updates the status of a token.
