@@ -76,6 +76,22 @@ def tokens():
     all_tokens = cur.execute(sql).fetchall()
     return jsonify(all_tokens)
 
+'''Route: Returns all of of a students tokens from the database.
+'''
+@app.route('/get-student-tokens', methods=['POST'])
+def student_tokens():
+    if request.method == 'POST':
+        msg = request.json
+        data = (msg['id'], )
+        print("Searching student", str(msg['id']))
+        sql = "select * from exposureTokens where gNum = ?;"
+
+        with sqlite3.connect(DATABASE) as con:
+            cur = con.cursor()
+            results =  cur.execute(sql, data).fetchall()
+
+        return jsonify(results)
+
 '''Route: Returns a list of all random id's that may have been exposed to covid-19.
 '''
 @app.route('/get-exposure-list')
