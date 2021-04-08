@@ -3,6 +3,7 @@ from flask_cors import CORS
 
 from datetime import datetime
 import sqlite3
+import requests
 
 from base64 import b64decode, b64encode
 from nacl.secret import SecretBox
@@ -27,8 +28,11 @@ with sqlite3.connect(DATABASE) as con:
 '''Adds a token to the database.
 '''
 def add_token(gNum, random_ids):
+    pload = {'id':gNum}
+    r = requests.post('http://35.195.7.207:5001/get-status',data = pload)
+
+    status = r.text
     time = datetime.now().strftime("%Y-%m-%d") 
-    status = 0
     data = (gNum, random_ids, time, status)
     sql = "insert into exposureTokens (gNum, token, date, status) values (?, ?, ?, ?);"
 
@@ -66,6 +70,22 @@ def update_status():
 
     return "ok"
     
+
+'''Route: Deletes a token.
+'''
+@app.route('/delete-token', methods=['POST'])
+def delete_token():
+    if request.method == 'POST':
+        msg = request.json
+        data = (msg['id'],)
+        sql = """delete from exposureTokens where id = ?;"""
+
+        with sqlite3.connect(DATABASE) as con:
+            cur = con.cursor()
+            cur.execute(sql, data)
+
+    return "ok"
+
 '''Route: Returns all of tokens stored in the database.
 '''
 @app.route('/get-tokens')
