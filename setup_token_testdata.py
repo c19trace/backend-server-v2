@@ -1,8 +1,7 @@
 from datetime import datetime
 import sqlite3
 
-API_KEY = "test123" 
-DATABASE = 'exposure.db'
+DATABASE = 'gmit.db'
 CREATE_QUERY = """create table if not exists
                 exposureTokens (id integer primary key autoincrement,
                 gNum varchar(32) not null, token varchar(32) not null unique,

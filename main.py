@@ -1,40 +1,47 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-
 from datetime import datetime
-import sqlite3
-import requests
-
 from base64 import b64decode, b64encode
 from nacl.secret import SecretBox
 from nacl.public import PrivateKey
+import sqlite3
 
 API_KEY = "5MsHBAGgmulDbS2AsX9bNY9fd5SVKd3IG5SXc9JTVic="
-DATABASE = 'exposure.db'
-CREATE_QUERY = """create table if not exists
-                exposureTokens (id integer primary key autoincrement,
-                gNum varchar(32) not null, token varchar(32) not null unique,
-                date date, status integer);
+DATABASE = 'gmit.db'
+CREATE_EXPOSURE_DB = """create table if not exists exposureTokens (id integer primary key autoincrement,
+                gNum varchar(32) not null, token varchar(32) not null unique, date date, status integer);
+                """
+CREATE_STUDENT_DB = """create table if not exists students(id varchar(32) unique, fname varchar(32),
+                lname varchar(32), email varchar(32), programme varchar(32), year integer, covid_status integer);
                 """
 
 app = Flask(__name__)
 CORS(app)
 
-'''Creates the database, if it does not exist.
+'''Creates the database and tables, if they do not exist.
 '''
 with sqlite3.connect(DATABASE) as con:
-    con.execute(CREATE_QUERY)
+    con.execute(CREATE_EXPOSURE_DB)
+    con.execute(CREATE_STUDENT_DB)
 
 '''Adds a token to the database.
+    The tokens status will be taken from the student who is registering the attendance.
+    If the status is exposued to covid, all tokens which share programme and year and which have been registered that day,
+    Will be set to exposed. Status of students whom these tokens belong to will be updated.
 '''
 def add_token(gNum, random_ids):
-    pload = {'id':gNum}
-    r = requests.post('http://35.195.7.207:5001/get-status',data = pload)
 
-    status = r.text
-    time = datetime.now().strftime("%Y-%m-%d") 
-    data = (gNum, random_ids, time, status)
-    sql = "insert into exposureTokens (gNum, token, date, status) values (?, ?, ?, ?);"
+    # Checks the student database for the status, sets the status of the token to the status of the registering student.
+    sql = 'select covid_status, programme, year from students where id = ?;'
+    data = (gNum,)
+    conn = sqlite3.connect(DATABASE)
+    cur = conn.cursor()
+    r = cur.execute(sql, data).fetchall()
+    # Adding the token
+    status = r[0][0]
+    date = datetime.now().strftime("%Y-%m-%d") 
+    data = (gNum, random_ids, date, status)
+    sql = 'insert into exposureTokens (gNum, token, date, status) values (?, ?, ?, ?);'
 
     with sqlite3.connect(DATABASE) as con:
         try:
@@ -42,6 +49,34 @@ def add_token(gNum, random_ids):
         except sqlite3.IntegrityError:
             pass
 
+    # If status=1, update all other students from this class & year
+    if status == 1:
+        programme = r[0][1]
+        year = r[0][2]
+        # Updates the students covid_status
+        sql = """
+            update students SET covid_status = 1
+            WHERE programme = ? AND year = ? AND 
+            id IN(Select gNum FROM exposureTokens WHERE date = ?)
+        """
+        data = (programme, year, date)
+
+        with sqlite3.connect(DATABASE) as con:
+            cur = con.cursor()
+            cur.execute(sql, data)
+
+        # Updates the students covid_status, if they are in attendance with an exposed id.
+        sql = """
+            Update exposureTokens set status = 1
+            WHERE date = ? AND
+            gNum IN(Select id FROM students WHERE covid_status = ?)
+        """
+        data = (date, status)
+        with sqlite3.connect(DATABASE) as con:
+            cur = con.cursor()
+            cur.execute(sql, data)
+        
+# Exposure database routes.
 '''Decrypts the received message.
 '''
 def decryptMsg(encrypted):
@@ -55,14 +90,13 @@ def decryptMsg(encrypted):
     print("Decrypted token: ", decrypted)
     return decrypted
 
-'''Route: Deletes a token.
+'''Route: Deletes a token to the exposure table.
 '''
 @app.route('/delete-token', methods=['POST'])
 def delete_token():
     if request.method == 'POST':
         msg = request.json
         data = (msg['id'],)
-        B
         sql = """delete from exposureTokens where id = ?;"""
 
         with sqlite3.connect(DATABASE) as con:
@@ -71,10 +105,10 @@ def delete_token():
 
     return "ok"
 
-'''Route: Updates the status of a token.
+'''Route: Updates the status of a token in the exposure table.
 '''
-@app.route('/update-status', methods=['POST'])
-def update_status():
+@app.route('/update-token-status', methods=['POST'])
+def update_token_status():
     if request.method == 'POST':
         msg = request.json
         data = (msg['status'], msg['id'])
@@ -86,10 +120,10 @@ def update_status():
 
     return "ok"
     
-'''Route: Returns all of tokens stored in the database.
+'''Route: Returns all of tokens stored in the exposure table.
 '''
 @app.route('/get-tokens')
-def tokens():
+def get_tokens():
     sql = 'select * from exposureTokens'
     conn = sqlite3.connect(DATABASE)
     cur = conn.cursor()
@@ -97,7 +131,7 @@ def tokens():
 
     return jsonify(all_tokens)
 
-'''Route: Returns all tokens generated by a given student.
+'''Route: Returns all tokens generated by a given student from the exposure table.
 '''
 @app.route('/get-student-tokens', methods=['POST'])
 def student_tokens():
@@ -113,10 +147,10 @@ def student_tokens():
 
         return jsonify(results)
 
-'''Route: Returns a list of all random id's that may have been exposed to covid-19.
+'''Route: Returns a list of all random id's which may have been exposed to covid-19 from the exposure table.
 '''
 @app.route('/get-exposure-list')
-def exposures():
+def get_exposures():
     sql = "select token from exposureTokens where status = 1;"
     
     with sqlite3.connect(DATABASE) as con:
@@ -126,7 +160,8 @@ def exposures():
 
         return results
 
-'''Route: Returns a list of monthly checkins with a count of exposed and non-exposed tokens. 
+'''Route: Returns a list of monthly checkins from the exposure database.
+    The list contains a count of exposed and non-exposed tokens. 
 '''
 @app.route('/get-monthly-checkins')
 def monthly_checkins():
@@ -138,7 +173,8 @@ def monthly_checkins():
 
     return jsonify(all_tokens)
 
-'''Route: Submits a token to the database.
+'''Route: Submits a token to the exposure database.
+    The token is decrypted and then added to the database.
 '''
 @app.route('/submit-token', methods=['POST'])
 def test():
@@ -153,6 +189,63 @@ def test():
         # Add to db
         with sqlite3.connect(DATABASE) as con:
             add_token(decrypted[0], decrypted[1])
+
+    return "ok"
+    
+# Student database routes.
+''' Adds a student to the student table.
+'''
+def add_student(id, fname, lname, programme, year):
+    covid_status = 0
+    email = id + "@gmit.ie"
+    data = (id, fname, lname, email, programme, year, covid_status)
+    sql = """insert into students(id, fname, lname, email, programme, year, covid_status) 
+            values (?, ?, ?, ?, ?, ?, ?);"""
+
+    with sqlite3.connect(DATABASE) as con:
+        try:
+            con.execute(sql, data)
+        except sqlite3.IntegrityError:
+            pass
+
+'''Route: Returns a list of all of the students in the student table.
+'''
+@app.route('/get-students')
+def get_students():
+    sql = 'select * from students'
+    conn = sqlite3.connect(DATABASE)
+    cur = conn.cursor()
+    all_students = cur.execute(sql).fetchall()
+
+    return jsonify(all_students)
+
+'''Route: Returns the covid status of a given student from the student table.
+'''
+@app.route('/get-student-status', methods=['POST'])
+def get_student_status():
+    if request.method == 'POST':
+        msg = request.form
+        data = (msg['id'], )
+
+        sql = 'select covid_status from students where id = ?;'
+        conn = sqlite3.connect(DATABASE)
+        cur = conn.cursor()
+        status = cur.execute(sql, data).fetchall()
+
+        return str(status[0][0])
+
+'''Route: Updates the covid status of a given  from the student table.
+'''
+@app.route('/update-student-status', methods=['POST'])
+def update_student_status():
+    if request.method == 'POST':
+        msg = request.json
+        data = (msg['status'], msg['id'])
+        sql = """update students set covid_status = ? where id = ?;"""
+
+        with sqlite3.connect(DATABASE) as con:
+            cur = con.cursor()
+            cur.execute(sql, data)
 
     return "ok"
 
